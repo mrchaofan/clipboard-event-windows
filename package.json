@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "node-gyp": "^9.4.0"
+  },
+  "name": "clipboard-event-windows",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT"
+}
