@@ -7,6 +7,7 @@
             "sources": [
                 "src/Api.cc",
                 "src/ChildThread.cc",
+                "src/ClipboardEvent.cc",
             ],
             'defines': ['NAPI_DISABLE_CPP_EXCEPTIONS'],
         }
