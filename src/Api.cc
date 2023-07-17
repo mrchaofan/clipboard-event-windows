@@ -19,7 +19,7 @@ namespace Chaofan
         static std::mutex mutex;
         static void WakeupMain()
         {
-            std::lock_guard guard{mutex};
+            std::lock_guard<std::mutex> guard{mutex};
             clipboardHasUpdate = true;
             // 先唤醒主线程再释放锁，防止低优先级任务线获得锁，导致主线程任务丢失事件
             childThread->WakeupMain();
@@ -33,7 +33,7 @@ namespace Chaofan
                 {
                     uv_sleep(3000);
                     {
-                        std::lock_guard guard{mutex};
+                        std::lock_guard<std::mutex> guard{mutex};
                         if (requestShutdown)
                         {
                             break;
@@ -55,7 +55,7 @@ namespace Chaofan
             HandleScope handleScope(isolate);
             bool hasUpdate = false;
             {
-                std::lock_guard guard{mutex};
+                std::lock_guard<std::mutex> guard{mutex};
                 if (clipboardHasUpdate)
                 {
                     clipboardHasUpdate = false;
@@ -73,7 +73,7 @@ namespace Chaofan
         {
             if (TESTENV)
             {
-                std::lock_guard guard{mutex};
+                std::lock_guard<std::mutex> guard{mutex};
                 requestShutdown = true;
                 return;
             }
