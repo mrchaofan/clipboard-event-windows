@@ -16,20 +16,25 @@ namespace Chaofan
         delete childThread;
     }
 
-    ChildThread::ChildThread(const ChildThreadNewOptions &options) : arg(options.arg), RunInChildThread(options.RunInChildThread), GracefullyShutdown(options.GracefullyShutdown),
-                                                                     RunInMainThread(options.RunInMainThread)
+    ChildThread::ChildThread(const ChildThreadNewOptions &options) : arg(options.arg), RunInChildThread(options.RunInChildThread),
+                                                                     RunInMainThread(options.RunInMainThread), GracefullyShutdown(options.GracefullyShutdown)
     {
-        uv_async_init(uv_default_loop(), &this->async, UVRunInMainThread);
-        this->async.data = this;
     }
 
     ChildThread *ChildThread::New(const ChildThreadNewOptions &options)
     {
         ChildThread *childThread = new ChildThread(options);
-        int er = uv_thread_create(&childThread->tid, childThread->RunInChildThread, childThread->arg);
+        int er = uv_async_init(uv_default_loop(), &childThread->async, UVRunInMainThread);
         if (er)
         {
             delete childThread;
+            return nullptr;
+        }
+        childThread->async.data = childThread;
+        er = uv_thread_create(&childThread->tid, childThread->RunInChildThread, childThread->arg);
+        if (er)
+        {
+            uv_close((uv_handle_t *)&childThread->async, UVCloseCallback);
             return nullptr;
         }
         return childThread;
@@ -43,12 +48,15 @@ namespace Chaofan
     void ChildThread::RequestGracefullyShotdown()
     {
         this->GracefullyShutdown(&this->tid, this->arg);
-        uv_thread_join(&this->tid);
-        uv_close((uv_handle_t *)&this->async, UVCloseCallback);
+    }
+
+    void ChildThread::WaitForShutdown(ChildThread *childThread)
+    {
+        uv_thread_join(&childThread->tid);
+        uv_close((uv_handle_t *)&childThread->async, UVCloseCallback);
     }
 
     ChildThread::~ChildThread()
     {
-        // 由于uv_close需要的uv_handle_t载调用栈的周期内依然被liuv使用，所以这里不能遵守RAII
     }
 }

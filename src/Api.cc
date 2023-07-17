@@ -4,8 +4,9 @@
 #include <mutex>
 #include <iostream>
 #include "ChildThread.h"
+#ifdef _WIN32
 #include "ClipboardEvent.h"
-#define TESTENV false
+#endif
 
 namespace Chaofan
 {
@@ -27,26 +28,25 @@ namespace Chaofan
 
         static void RunInChildThread(void *)
         {
-            if (TESTENV)
+#ifndef _WIN32
+            for (;;)
             {
-                for (;;)
+                uv_sleep(3000);
                 {
-                    uv_sleep(3000);
+                    std::lock_guard<std::mutex> guard{mutex};
+                    if (requestShutdown)
                     {
-                        std::lock_guard<std::mutex> guard{mutex};
-                        if (requestShutdown)
-                        {
-                            break;
-                        }
-                        clipboardHasUpdate = true;
-                        // 先唤醒主线程再释放锁，防止低优先级任务线获得锁，导致主线程任务丢失事件
-                        childThread->WakeupMain();
+                        break;
                     }
+                    clipboardHasUpdate = true;
+                    // 先唤醒主线程再释放锁，防止低优先级任务线获得锁，导致主线程任务丢失事件
+                    childThread->WakeupMain();
                 }
-                return;
             }
+#else
             std::cout << GetCurrentThreadId();
             listenClipboardChange(WakeupMain);
+#endif
         }
         static void RunInMainThread(void *)
         {
@@ -71,17 +71,17 @@ namespace Chaofan
         }
         static void GracefullyShutdown(uv_thread_t *tid, void *)
         {
-            if (TESTENV)
+#ifndef _WIN32
+            std::lock_guard<std::mutex> guard{mutex};
+            requestShutdown = true;
+#else
+            bool suc = PostThreadMessage((DWORD)GetThreadId(*tid), WM_GRACEFUL_EXIT, 0, 0);
+            if (!suc)
             {
-                std::lock_guard<std::mutex> guard{mutex};
-                requestShutdown = true;
-                return;
-            }
-            bool suc = PostThreadMessage((DWORD) GetThreadId(*tid), WM_GRACEFUL_EXIT, 0, 0);
-            if (!suc) {
                 DWORD er = GetLastError();
                 std::cout << "PostThreadMessage" << er << "\n";
             }
+#endif
         }
 
         static void SetClipboardListener(const v8::FunctionCallbackInfo<v8::Value> &args)
@@ -93,6 +93,7 @@ namespace Chaofan
                 if (childThread != nullptr)
                 {
                     childThread->RequestGracefullyShotdown();
+                    ChildThread::WaitForShutdown(childThread);
                     childThread = nullptr;
                 }
                 args.GetReturnValue().Set(Boolean::New(isolate, false));
@@ -116,11 +117,11 @@ namespace Chaofan
             {
                 clipboardHasUpdate = false;
                 requestShutdown = false;
-                ChildThreadNewOptions option{
-                    nullptr,
-                    RunInChildThread,
-                    RunInMainThread,
-                    GracefullyShutdown};
+                ChildThreadNewOptions option;
+                option.arg = nullptr;
+                option.RunInChildThread = RunInChildThread;
+                option.RunInMainThread = RunInMainThread;
+                option.GracefullyShutdown = GracefullyShutdown;
                 childThread = ChildThread::New(option);
             }
             args.GetReturnValue().Set(Boolean::New(isolate, true));

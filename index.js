@@ -1,4 +1,4 @@
-const setClipboardListener = require('./build/Debug/clipboard-event-windows.node')
+const setClipboardListener = require('./build/Release/clipboard-event-windows.node')
 console.log(setClipboardListener);
 let count = 0
 
