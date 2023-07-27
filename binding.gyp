@@ -5,7 +5,7 @@
             "cflags!": ["-fno-exceptions"],
             "cflags_cc!": ["-fno-exceptions"],
             "sources": [
-                "src/Api.cc",
+                "src/Binding.cc",
                 "src/ChildThread.cc",
                 "src/ClipboardEvent.cc",
             ],
